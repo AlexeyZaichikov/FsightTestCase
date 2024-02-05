@@ -1,0 +1,10 @@
+D:\Projects\Test for work\Fsight\FsightTestCase\bin\Debug\FsightTestCase.exe.config
+D:\Projects\Test for work\Fsight\FsightTestCase\bin\Debug\FsightTestCase.exe
+D:\Projects\Test for work\Fsight\FsightTestCase\bin\Debug\FsightTestCase.pdb
+D:\Projects\Test for work\Fsight\FsightTestCase\obj\Debug\FsightTestCase.csproj.AssemblyReference.cache
+D:\Projects\Test for work\Fsight\FsightTestCase\obj\Debug\FsightTestCase.Form1.resources
+D:\Projects\Test for work\Fsight\FsightTestCase\obj\Debug\FsightTestCase.Properties.Resources.resources
+D:\Projects\Test for work\Fsight\FsightTestCase\obj\Debug\FsightTestCase.csproj.GenerateResource.cache
+D:\Projects\Test for work\Fsight\FsightTestCase\obj\Debug\FsightTestCase.csproj.CoreCompileInputs.cache
+D:\Projects\Test for work\Fsight\FsightTestCase\obj\Debug\FsightTestCase.exe
+D:\Projects\Test for work\Fsight\FsightTestCase\obj\Debug\FsightTestCase.pdb
