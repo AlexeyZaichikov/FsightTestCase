@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Configuration;
+using System.Threading;
 
 namespace FsightTestCase
 {
@@ -42,84 +43,100 @@ namespace FsightTestCase
             }
         }
 
-        public async Task<int> ExportCSV(string tableName)
+        public async Task<int> ExportCSV(string tableName, SemaphoreSlim semaphore)
         {
-            Random random = new Random();
-            await Task.Delay(random.Next(10000));
+            await semaphore.WaitAsync();
             int rowsCount = 0;
-            using (SqlConnection connection = GetConnection())
+            try
             {
-                connection.Open();
-                DataSet data = new DataSet();
-                SqlDataAdapter dataAdapter = new SqlDataAdapter(string.Format("SELECT * FROM {0}", tableName), connection);
-                dataAdapter.Fill(data);
-                connection.Close();
-                DataTable dataTable = data.Tables[0];
-                rowsCount = dataTable.Rows.Count;
-                if (rowsCount > 0)
+                Random random = new Random();
+                await Task.Delay(random.Next(10000));
+                using (SqlConnection connection = GetConnection())
                 {
-                    using (StreamWriter sw = new StreamWriter(string.Format(@"C:\{0}.csv", tableName), false))
+                    connection.Open();
+                    DataSet data = new DataSet();
+                    SqlDataAdapter dataAdapter = new SqlDataAdapter(string.Format("SELECT * FROM {0}", tableName), connection);
+                    dataAdapter.Fill(data);
+                    connection.Close();
+                    DataTable dataTable = data.Tables[0];
+                    rowsCount = dataTable.Rows.Count;
+                    if (rowsCount > 0)
                     {
-                        int numColumns = dataTable.Columns.Count;
-
-                        for (int i = 0; i < numColumns; i++)
+                        using (StreamWriter sw = new StreamWriter(string.Format(@"C:\{0}.csv", tableName), false))
                         {
-                            sw.Write(dataTable.Columns[i]);
-                            if (i < numColumns - 1)
-                            {
-                                sw.Write("\t");
-                            }
-                        }
-                        sw.Write(sw.NewLine);
+                            int numColumns = dataTable.Columns.Count;
 
-                        foreach (DataRow row in dataTable.Rows)
-                        {
                             for (int i = 0; i < numColumns; i++)
                             {
+                                sw.Write(dataTable.Columns[i]);
+                                if (i < numColumns - 1)
                                 {
-                                    sw.Write(row[i].ToString());
                                     sw.Write("\t");
                                 }
                             }
                             sw.Write(sw.NewLine);
+
+                            foreach (DataRow row in dataTable.Rows)
+                            {
+                                for (int i = 0; i < numColumns; i++)
+                                {
+                                    {
+                                        sw.Write(row[i].ToString());
+                                        sw.Write("\t");
+                                    }
+                                }
+                                sw.Write(sw.NewLine);
+                            }
+                            sw.Close();
                         }
-                        sw.Close();
                     }
                 }
+            }
+            finally
+            {
+                semaphore.Release();
             }
             return rowsCount;
         }
 
-        public async Task<int> ImportCSV(string filePath)
+        public async Task<int> ImportCSV(string filePath, SemaphoreSlim semaphore)
         {
-            Random random = new Random();
-            await Task.Delay(random.Next(10000));
+            await semaphore.WaitAsync();
             int isExist = 0, rowsCount = 0;
-            using (SqlConnection connection = GetConnection())
+            try
             {
-                connection.Open();
-                SqlCommand command = new SqlCommand(string.Format("SELECT count(*) FROM sys.objects WHERE name = '{0}'", Path.GetFileNameWithoutExtension(filePath)), connection);
-                SqlDataReader reader = command.ExecuteReader();
-                if (reader.HasRows)
+                Random random = new Random();
+                await Task.Delay(random.Next(10000));
+                using (SqlConnection connection = GetConnection())
                 {
-                    while (reader.Read())
+                    connection.Open();
+                    SqlCommand command = new SqlCommand(string.Format("SELECT count(*) FROM sys.objects WHERE name = '{0}'", Path.GetFileNameWithoutExtension(filePath)), connection);
+                    SqlDataReader reader = command.ExecuteReader();
+                    if (reader.HasRows)
                     {
-                        isExist = reader.GetInt32(0);
+                        while (reader.Read())
+                        {
+                            isExist = reader.GetInt32(0);
+                        }
                     }
-                }
-                reader.Close();
+                    reader.Close();
 
-                if (isExist == 1)
-                {
-                    command = new SqlCommand(string.Format("DROP TABLE {0}", Path.GetFileNameWithoutExtension(filePath)), connection);
-                    command.ExecuteNonQuery();
-                    rowsCount = CreateTable(connection, filePath, Path.GetFileNameWithoutExtension(filePath));
+                    if (isExist == 1)
+                    {
+                        command = new SqlCommand(string.Format("DROP TABLE {0}", Path.GetFileNameWithoutExtension(filePath)), connection);
+                        command.ExecuteNonQuery();
+                        rowsCount = CreateTable(connection, filePath, Path.GetFileNameWithoutExtension(filePath));
+                    }
+                    else
+                    {
+                        rowsCount = CreateTable(connection, filePath, Path.GetFileNameWithoutExtension(filePath));
+                    }
+                    connection.Close();
                 }
-                else
-                {
-                    rowsCount = CreateTable(connection, filePath, Path.GetFileNameWithoutExtension(filePath));
-                }
-                connection.Close();
+            }
+            finally
+            {
+                semaphore?.Release();
             }
             return rowsCount;
         }

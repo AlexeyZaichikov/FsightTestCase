@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -108,50 +109,44 @@ namespace FsightTestCase
                             break;
                         }
                     }
-                    if (numCheckedTables <= Convert.ToInt32(tb_MaxTableCount.Text))
+                    if (numCheckedTables != 0)
                     {
-                        if (numCheckedTables != 0)
+                        int countActiveTasks = 0, countExportSRows = 0;
+                        List<string> names = new List<string>();
+                        List<Task<int>> listTasks = new List<Task<int>>();
+                        SemaphoreSlim semaphore = new SemaphoreSlim(Convert.ToInt32(tb_MaxTableCount.Text));
+                        foreach (TreeNode node in tv_DataBaseTree.Nodes)
                         {
-                            int countActiveTasks = 0, countExportSRows = 0;
-                            List<string> names = new List<string>();
-                            List<Task<int>> listTasks = new List<Task<int>>();
-                            foreach (TreeNode node in tv_DataBaseTree.Nodes)
+                            if (node.Tag.ToString() == "USER_TABLE")
                             {
-                                if (node.Tag.ToString() == "USER_TABLE")
+                                foreach (TreeNode nodeChild in node.Nodes)
                                 {
-                                    foreach (TreeNode nodeChild in node.Nodes)
+                                    if (nodeChild.Checked == true)
                                     {
-                                        if (nodeChild.Checked == true)
-                                        {
-                                            listTasks.Add(_mainRepository.ExportCSV(nodeChild.Text.ToString()));
-                                            countActiveTasks++;
-                                            label3.Text = countActiveTasks.ToString();
-                                        }
+                                        listTasks.Add(_mainRepository.ExportCSV(nodeChild.Text.ToString(), semaphore));
+                                        countActiveTasks++;
+                                        label3.Text = countActiveTasks.ToString();
                                     }
-                                    break;
                                 }
+                                break;
                             }
-                            while (listTasks.Count > 0)
-                            {
-                                Task<int> completedTask = await Task.WhenAny(listTasks);
-                                int result = await completedTask;
-                                countActiveTasks--;
-                                countExportSRows += result;
-                                label3.Text = countActiveTasks.ToString();
-                                label5.Text = countExportSRows.ToString();
-                                listTasks.Remove(completedTask);
-                            }
-
-                            MessageBox.Show("Экспорт завершен!");
                         }
-                        else
+                        while (listTasks.Count > 0)
                         {
-                            MessageBox.Show("Не выбрана ни одна таблица!");
+                            Task<int> completedTask = await Task.WhenAny(listTasks);
+                            int result = await completedTask;
+                            countActiveTasks--;
+                            countExportSRows += result;
+                            label3.Text = countActiveTasks.ToString();
+                            label5.Text = countExportSRows.ToString();
+                            listTasks.Remove(completedTask);
                         }
+
+                        MessageBox.Show("Экспорт завершен!");
                     }
                     else
                     {
-                        MessageBox.Show("Количество выделенных таблиц превышает ограничение!");
+                        MessageBox.Show("Не выбрана ни одна таблица!");
                     }
                 }
                 else
@@ -181,30 +176,24 @@ namespace FsightTestCase
                     int countActiveTasks = 0, countImportSRows = 0;
                     List<string> names = new List<string>();
                     List<Task<int>> listTasks = new List<Task<int>>();
-                    if (files.Length <= Convert.ToInt32(tb_MaxTableCount.Text))
+                    SemaphoreSlim semaphore = new SemaphoreSlim(Convert.ToInt32(tb_MaxTableCount.Text));
+                    foreach (string file in files)
                     {
-                        foreach (string file in files)
-                        {
-                            listTasks.Add(_mainRepository.ImportCSV(file));
-                            countActiveTasks++;
-                            label3.Text = countActiveTasks.ToString();
-                        }
-                        while (listTasks.Count > 0)
-                        {
-                            Task<int> completedTask = await Task.WhenAny(listTasks);
-                            int result = await completedTask;
-                            countActiveTasks--;
-                            countImportSRows += result;
-                            label3.Text = countActiveTasks.ToString();
-                            label5.Text = countImportSRows.ToString();
-                            listTasks.Remove(completedTask);
-                        }
-                        MessageBox.Show("Импорт завершен!");
+                        listTasks.Add(_mainRepository.ImportCSV(file, semaphore));
+                        countActiveTasks++;
+                        label3.Text = countActiveTasks.ToString();
                     }
-                    else
+                    while (listTasks.Count > 0)
                     {
-                        MessageBox.Show("Количество выделенных файлов превышает ограничение!");
+                        Task<int> completedTask = await Task.WhenAny(listTasks);
+                        int result = await completedTask;
+                        countActiveTasks--;
+                        countImportSRows += result;
+                        label3.Text = countActiveTasks.ToString();
+                        label5.Text = countImportSRows.ToString();
+                        listTasks.Remove(completedTask);
                     }
+                    MessageBox.Show("Импорт завершен!");
                 }
                 else
                 {
@@ -217,11 +206,6 @@ namespace FsightTestCase
                 label5.Text = "0";
                 MessageBox.Show(ex.Message);
             }
-        }
-
-        async Task DoValidations(string tableName)
-        {
-            await _mainRepository.ExportCSV(tableName);
         }
 
         private void treeView1_AfterCheck(object sender, TreeViewEventArgs e)
